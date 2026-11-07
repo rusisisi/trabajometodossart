@@ -1,0 +1,167 @@
+<!doctype html>
+<!-- CONFIGURACIÓN: URL de tu Google Apps Script (termina en /exec). Vacío = solo descarga manual -->
+<script>
+window.FLANKER_ENDPOINT = "https://script.google.com/macros/s/AKfycbwEY0mM6jacy2quOnozGnpRA724Hj9UoSMtkIo4-cg5IfQnOS1df8F7HXpcB6Y1lUNQ5A/exec";
+window.FLANKER_EMAIL = "";   // (opcional) tu email: se muestra si falla el envío
+</script>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111"><title>Estudio de atención · Attention study</title>
+<style>
+:root{--g:#7CFC00;--r:#ff5a5a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#111;color:#fff;font:clamp(16px,2.2vmin,20px)/1.5 system-ui,Arial,sans-serif;overscroll-behavior:none;touch-action:manipulation}
+#v{min-height:100%;max-width:760px;margin:auto;padding:max(12px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));display:flex;flex-direction:column}
+.c{flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:12px 0}.ct{text-align:center}
+h1{margin:0;font-size:1.6em}h2{margin:0;font-size:1.25em}.m{opacity:.7}.t b{color:var(--g)}
+button{font:inherit;font-weight:700;padding:.85em 1.4em;border-radius:12px;border:2px solid #fff;background:#222;color:#fff;cursor:pointer}
+button.go{border-color:var(--g);color:var(--g)}button:disabled{opacity:.35}.big{font-size:1.2em;padding:1em}
+.step{display:flex;justify-content:center;gap:14px;font-size:.8em;opacity:.8;flex-wrap:wrap}.step .on{color:var(--g);font-weight:700;border-bottom:2px solid var(--g)}
+.q{background:#1c1c1c;border:2px solid #333;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px}.q.err{border-color:var(--r)}.qt{font-weight:700}
+.op{display:flex;gap:10px;align-items:center;padding:10px 12px;border:2px solid #444;border-radius:10px;cursor:pointer}.op:has(input:checked){border-color:var(--g);background:#1d2b12}
+input[type=radio]{width:1.2em;height:1.2em;accent-color:var(--g);flex:none}
+input[type=number]{font:inherit;padding:.7em;border-radius:10px;border:2px solid #555;background:#111;color:#fff;width:8em}
+.lik{display:flex;gap:8px}.lik label{flex:1}.lik input{position:absolute;opacity:0}.lik span{display:block;text-align:center;padding:.7em 0;border:2px solid #444;border-radius:10px;cursor:pointer}.lik input:checked+span{border-color:var(--g);background:#1d2b12;color:var(--g);font-weight:700}
+.lab{display:flex;justify-content:space-between;font-size:.8em;opacity:.7}
+label.cons{display:flex;gap:10px;align-items:flex-start}
+.ex{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ex div{border:2px solid #444;border-radius:12px;padding:12px;text-align:center}.ex .d{font-size:3.2em;font-weight:700;line-height:1.1}
+#st{position:fixed;inset:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none}
+#dg{font-weight:400;font-family:Arial,sans-serif;height:30vmin;display:flex;align-items:center}#hint{position:absolute;bottom:6vh;opacity:.55;text-align:center;padding:0 16px}#fbk{position:absolute;top:22%;font-weight:700;font-size:1.3em}
+#bar{position:absolute;top:0;left:0;right:0;height:5px;background:#222}#bar i{display:block;height:100%;width:0;background:#556}
+.msg{color:var(--r);min-height:1.5em}
+</style></head><body><div id="v"></div>
+<script>
+function showErr(m){const d=document.createElement('div');d.style.cssText='position:fixed;left:0;right:0;bottom:0;background:#a00;color:#fff;padding:8px 12px;font:13px monospace;z-index:99;user-select:text';d.textContent='⚠ Error: '+m;document.body.appendChild(d)}
+addEventListener('error',e=>showErr(e.message+' (línea '+e.lineno+')'));addEventListener('unhandledrejection',e=>showErr(String(e.reason&&e.reason.message||e.reason)));
+const $=id=>document.getElementById(id),V=$('v'),view=h=>V.innerHTML=h,sleep=ms=>new Promise(r=>setTimeout(r,ms)),Q=new URLSearchParams(location.search);
+const CFG={endpoint:window.FLANKER_ENDPOINT||'',n:+(Q.get('trials')||225),pn:+(Q.get('pn')||18),dig:250,mask:900};
+let LG='es';const t=k=>X[k][LG==='es'?0:1],p=a=>a[LG==='es'?0:1];
+/* ===== Textos [español, English] ===== */
+const X={
+ intro:['Esta actividad tiene dos partes: un <b>cuestionario</b> (unos 5 minutos) y un <b>test de atención</b> (unos 7 minutos). Es <b>anónima</b>: no te pedimos nombre ni datos personales. Hazla en un lugar tranquilo y con el móvil en silencio.','This activity has two parts: a <b>questionnaire</b> (about 5 minutes) and an <b>attention test</b> (about 7 minutes). It is <b>anonymous</b>: we do not ask for your name or personal data. Do it in a quiet place with your phone on silent.'],
+ cons:['Acepto participar voluntariamente. Entiendo que mis respuestas son anónimas y se usarán solo con fines de investigación.','I agree to take part voluntarily. I understand my answers are anonymous and will only be used for research.'],
+ start:['Comenzar','Start'],next:['Siguiente','Next'],toTest:['Continuar al test','Continue to the test'],blk:['Bloque','Section'],of:['de','of'],
+ miss:['Responde todas las preguntas marcadas en rojo.','Please answer all questions marked in red.'],
+ steps:[['Cuestionario','Práctica','Test','Fin'],['Questionnaire','Practice','Test','End']],
+ conn:['No se puede conectar con el servidor. Revisa tu conexión y pulsa Comenzar otra vez.','Cannot reach the server. Check your connection and press Start again.'],
+ old:['El script de Google no está actualizado: en Apps Script crea una «Nueva versión» de la implementación existente.','The Google script is outdated: in Apps Script create a “New version” of the existing deployment.'],
+ sTitle:['Test de atención','Attention test'],
+ sIns:['En la pantalla irán apareciendo <b>números del 1 al 9</b>, uno tras otro y muy rápido.<br><br>Pulsa <b>cada vez que veas un número</b>… <b>excepto si es el 3</b>: con el 3 <b>no pulses nada</b>.<br><br>Para pulsar, <b>toca la pantalla</b> o pulsa la <b>barra espaciadora</b>. Responde rápido, pero intenta no equivocarte.','Numbers from <b>1 to 9</b> will appear on the screen, one after another, very fast.<br><br>Press <b>every time you see a number</b>… <b>except when it is a 3</b>: with the 3 <b>do not press anything</b>.<br><br>To press, <b>tap the screen</b> or press the <b>space bar</b>. Respond quickly, but try not to make mistakes.'],
+ press:['PULSA','PRESS'],nopress:['NO PULSES','DO NOT PRESS'],
+ sPrac:['Empezaremos con una práctica corta.','We will start with a short practice.'],begP:['Empezar práctica','Start practice'],
+ pDone:['✅ Práctica terminada','✅ Practice finished'],
+ sTest:['Ahora empieza el <b>test real</b>: dura unos 4 minutos, <b>sin pausas</b> y sin avisos de acierto o error. Mantén la atención hasta el final.','Now the <b>real test</b> begins: about 4 minutes, <b>no breaks</b> and no right/wrong feedback. Stay focused until the end.'],begT:['Empezar test','Start test'],
+ tap:['Toca la pantalla o pulsa la barra espaciadora','Tap the screen or press the space bar'],
+ fOk:['Correcto','Correct'],fCom:['Error: con el 3 no se pulsa','Mistake: do not press with the 3'],fOm:['Error: debías pulsar','Mistake: you had to press'],
+ thanks:['¡Gracias!','Thank you!'],done:['Has completado la actividad. Ya puedes cerrar esta ventana.','You have completed the activity. You can now close this window.'],
+ again:['Ya has completado esta actividad en este dispositivo. ¡Gracias por participar!','You have already completed this activity on this device. Thank you!'],
+ sending:['Enviando tus respuestas…','Sending your answers…'],sent:['✓ Tus respuestas se han enviado correctamente','✓ Your answers were sent successfully'],
+ unc:['Tus respuestas se han enviado, pero el servidor no ha podido confirmarlo. Si el investigador no las ve, descarga el archivo y envíaselo.','Your answers were sent, but the server could not confirm it. If the researcher does not see them, download the file and send it.'],
+ fail:['⚠ No hemos podido enviar tus respuestas. Pulsa «Reintentar envío».','⚠ We could not send your answers. Press “Retry sending”.'],local:['Tus respuestas están guardadas en este dispositivo. Descarga el archivo y envíalo al investigador.','Your answers are saved on this device. Download the file and send it to the researcher.'],
+ retry:['Reintentar envío','Retry sending'],dl:['Descargar resultados','Download results']};
+const FREQ=[['Nunca','Never'],['Rara vez','Rarely'],['A veces','Sometimes'],['Frecuentemente','Often'],['Siempre','Always']];
+const BL=[
+{t:['Datos demográficos y académicos','Demographics and education'],q:[
+ {id:'edad',num:1,min:12,max:99,t:['Edad (años)','Age (years)']},
+ {id:'estudios',t:['Nivel de estudios actual','Current level of education'],o:[['Educación Secundaria (ESO)','Secondary education (ESO)'],['Bachillerato','Upper secondary (Bachillerato)'],['Formación Profesional (FP)','Vocational training (FP)'],['Grado Universitario','Undergraduate degree'],['Máster / Posgrado','Master’s / Postgraduate']]},
+ {id:'tdah',t:['¿Tienes algún diagnóstico oficial de TDAH u otro trastorno del aprendizaje/atención?','Do you have an official diagnosis of ADHD or another learning/attention disorder?'],o:[['Sí','Yes'],['No','No'],['En proceso de diagnóstico / No estoy seguro/a','Diagnosis in progress / Not sure']]}]},
+{t:['Tiempo de pantalla y hábitos de uso','Screen time and usage habits'],n:['Consulta la media diaria de los últimos 14 días en los ajustes de tu dispositivo. Android: «Bienestar digital y controles parentales» › «Panel de control». iOS: «Ajustes» › «Tiempo de uso» › «Ver toda la actividad» › vista de «14 días».','Check your daily average for the last 14 days in your device settings. Android: “Digital Wellbeing & parental controls” › “Dashboard”. iOS: “Settings” › “Screen Time” › “See All Activity” › “14 days” view.'],q:[
+ {id:'pantalla14',t:['Media diaria de tiempo total de pantalla en los últimos 14 días','Daily average total screen time over the last 14 days'],o:[['Menos de 2 horas al día','Less than 2 hours a day'],['Entre 2 y 4 horas al día','2 to 4 hours a day'],['Entre 4 y 6 horas al día','4 to 6 hours a day'],['Entre 6 y 8 horas al día','6 to 8 hours a day'],['Más de 8 horas al día','More than 8 hours a day']]},
+ {id:'uso',t:['¿A qué dedicas la mayor parte de tu tiempo de pantalla?','What do you spend most of your screen time on?'],o:[['Ocio','Leisure'],['Uso académico/estudio','Academic use / studying']]},
+ {id:'dormir',t:['¿Usas pantallas (móvil, tablet, PC, TV) en los 30-60 minutos previos a dormir?','Do you use screens (phone, tablet, PC, TV) in the 30–60 minutes before sleeping?'],o:FREQ}]},
+{t:['Multitarea digital y estudio','Digital multitasking and studying'],q:[
+ {id:'revisa',t:['Cuando estudias o haces tareas académicas, ¿con qué frecuencia revisas el móvil o cambias de pestaña por motivos ajenos al estudio?','When studying or doing academic work, how often do you check your phone or switch tabs for reasons unrelated to studying?'],o:FREQ},
+ {id:'notif',t:['¿Mantienes activas las notificaciones del móvil mientras estudias?','Do you keep phone notifications on while studying?'],o:[['Sí, con sonido/vibración','Yes, with sound/vibration'],['Sí, pero solo en silencio (pantalla se enciende)','Yes, but silent only (screen lights up)'],['No, uso modo "No molestar" / Apagado / Fuera de alcance','No, I use “Do not disturb” / Off / Out of reach']]}]},
+{t:['Variables de control (salud)','Control variables (health)'],q:[
+ {id:'sueno',t:['Promedio de horas de sueño por noche','Average hours of sleep per night'],o:[['Menos de 6 horas','Less than 6 hours'],['Entre 6 y 7 horas','6 to 7 hours'],['Entre 7 y 8 horas','7 to 8 hours'],['Más de 8 horas','More than 8 hours']]},
+ {id:'estim',t:['Consumo diario de estimulantes (café, bebidas energéticas, refrescos con cafeína, tabaco/vapeo)','Daily intake of stimulants (coffee, energy drinks, caffeinated soft drinks, tobacco/vaping)'],o:[['Ninguno','None'],['1 unidad al día','1 unit a day'],['2 a 3 unidades al día','2 to 3 units a day'],['Más de 3 unidades al día','More than 3 units a day']]},
+ {id:'actividad',t:['¿Cuántos días a la semana realizas actividad física (al menos 30 min)?','How many days a week do you do physical activity (at least 30 min)?'],o:[['0 días','0 days'],['1 a 2 días','1 to 2 days'],['3 a 4 días','3 to 4 days'],['5 o más días','5 or more days']]}]},
+{t:['Percepción subjetiva de concentración','Subjective perception of concentration'],n:['Escala del 1 al 5: 1 = Totalmente en desacuerdo, 5 = Totalmente de acuerdo.','Scale 1 to 5: 1 = Strongly disagree, 5 = Strongly agree.'],q:[
+ {id:'l1',lik:1,t:['Me cuesta mantener la atención concentrada en una sola tarea durante más de 20 minutos seguidos sin distraerme.','I find it hard to keep my attention on a single task for more than 20 minutes without getting distracted.']},
+ {id:'l2',lik:1,t:['Siento la necesidad impulsiva de mirar el móvil cuando estoy haciendo una tarea pesada o aburrida.','I feel an impulsive urge to look at my phone when I am doing a heavy or boring task.']},
+ {id:'l3',lik:1,t:['Me siento cansado/a o con «fatiga mental» al terminar de usar el móvil durante periodos prolongados.','I feel tired or “mentally fatigued” after using my phone for long periods.']}]}];
+/* ===== Estado y envío ===== */
+const ANS={},S={rows:[],meta:{},last:null},DONE='sart_done',QK='sart_queue';
+const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+const getQ=()=>{try{return JSON.parse(ls.get(QK)||'[]')}catch(e){return[]}},setQ=q=>ls.set(QK,JSON.stringify(q));
+const sig=()=>{const c=new AbortController();setTimeout(()=>c.abort(),20000);return c.signal};
+async function ping(){if(!CFG.endpoint)return'ok';try{const r=await fetch(CFG.endpoint+'?action=ping',{signal:sig()});const x=(await r.text()).trim();return/^pong v\d/.test(x)?'ok':'old'}catch(e){return'error'}}
+let USER='',NET='';
+async function flush(){if(!CFG.endpoint)return'local';const rest=[];let unc=0;USER='';NET='';
+ for(const q of getQ()){const body=JSON.stringify(q);let x=null;
+  try{const r=await fetch(CFG.endpoint,{method:'POST',headers:{'Content-Type':'text/plain'},body,signal:sig()});x=await r.text();const m=x.match(/^ok v\d+ muestra (\d+)/);if(m)USER=m[1]}catch(e){NET=e.message||String(e)}
+  if(x===null){try{await fetch(CFG.endpoint,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body,signal:sig()});unc=1}catch(e){rest.push(q)}}
+  else if(!/^ok/.test(x))rest.push(q)}
+ setQ(rest);return rest.length?'queued':unc?'unconfirmed':'sent'}
+const csv=r=>{if(!r.length)return'';const k=Object.keys(r[0]);return[k.join(','),...r.map(o=>k.map(x=>JSON.stringify(o[x]??'')).join(','))].join('\n')};
+function dl(n,x){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([x],{type:'text/csv'}));a.download=n;a.click()}
+const btn=(id,txt,cls='go')=>new Promise(r=>{$(id).textContent=txt;$(id).className=cls;$(id).onclick=()=>r()});
+const steps=n=>`<div class="step">${p(X.steps).map((x,i)=>`<span class="${i==n?'on':''}">${i+1}. ${x}</span>`).join('')}</div>`;
+/* ===== Pantallas: idioma, bienvenida, cuestionario ===== */
+async function welcome(){
+ view(`<div class="c ct"><h1>🌐 Español · English</h1><button class="go big" id="es">Español</button><button class="go big" id="en">English</button></div>`);
+ LG=await new Promise(r=>{$('es').onclick=()=>r('es');$('en').onclick=()=>r('en')});document.documentElement.lang=LG;
+ view(`<div class="c"><h1>${LG==='es'?'Estudio sobre atención y uso de pantallas':'Study on attention and screen use'}</h1><div>${t('intro')}</div>
+ <label class="cons"><input type="checkbox" id="ok" style="width:1.3em;height:1.3em;flex:none"><span>${t('cons')}</span></label><div id="msg" class="msg"></div><button id="go" class="go big" disabled></button></div>`);
+ $('ok').onchange=e=>$('go').disabled=!e.target.checked;
+ for(;;){await btn('go',t('start'));$('go').disabled=true;$('msg').style.color='#aaa';$('msg').textContent='…';const c=await ping();$('go').disabled=false;$('msg').style.color='';
+  if(c==='ok')break;$('msg').textContent=t(c==='old'?'old':'conn')}
+ S.meta={sessionId:Date.now().toString(36)+Math.random().toString(36).slice(2,8),lang:LG,date:new Date().toISOString().slice(0,10),time:new Date().toTimeString().slice(0,8),touch:('ontouchstart' in window)?1:0,screen:`${innerWidth}x${innerHeight}`,ua:navigator.userAgent};S.t0=performance.now()}
+const qHTML=q=>`<div class="q" id="q_${q.id}"><div class="qt">${p(q.t)}</div>`+(q.num?`<input type="number" inputmode="numeric" id="i_${q.id}" min="${q.min}" max="${q.max}">`:
+ q.lik?`<div class="lik">${[1,2,3,4,5].map(n=>`<label><input type="radio" name="${q.id}" value="${n}"><span>${n}</span></label>`).join('')}</div><div class="lab"><span>${LG==='es'?'Totalmente en desacuerdo':'Strongly disagree'}</span><span>${LG==='es'?'Totalmente de acuerdo':'Strongly agree'}</span></div>`:
+ q.o.map((o,i)=>`<label class="op"><input type="radio" name="${q.id}" value="${i}"><span>${p(o)}</span></label>`).join(''))+'</div>';
+async function questionnaire(){
+ for(let b=0;b<BL.length;b++){const B=BL[b];
+  view(`<div class="c">${steps(0)}<div class="m ct">${t('blk')} ${b+1} ${t('of')} ${BL.length}</div><h2>${p(B.t)}</h2>${B.n?`<div class="m">${p(B.n)}</div>`:''}${B.q.map(qHTML).join('')}<div id="msg" class="msg ct"></div><button id="go" class="go big"></button></div>`);scrollTo(0,0);
+  for(;;){await btn('go',b<BL.length-1?t('next'):t('toTest'));let ok=true;
+   for(const q of B.q){const el=$('q_'+q.id);let v=null;
+    if(q.num){const n=parseInt($('i_'+q.id).value);v=n>=q.min&&n<=q.max?n:null}
+    else{const c=document.querySelector(`input[name="${q.id}"]:checked`);if(c)v=q.lik?+c.value:q.o[+c.value][0]}
+    el.classList.toggle('err',v===null);if(v===null)ok=false;else ANS[q.id]=v}
+   if(ok)break;$('msg').textContent=t('miss');const e=document.querySelector('.q.err');e&&e.scrollIntoView({block:'center'})}}}
+/* ===== SART ===== */
+const SZ=[48,72,94,100,120],shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const digits=n=>{const o=[];while(o.length<n)o.push(...shuf([1,2,3,4,5,6,7,8,9]));return o.slice(0,n)};
+let H=null;addEventListener('keydown',e=>{if(e.code==='Space'||e.key===' '){e.preventDefault();H&&H()}});
+async function sartIntro(){
+ view(`<div class="c">${steps(1)}<h1>${t('sTitle')}</h1><div class="t">${t('sIns')}</div>
+ <div class="ex"><div><div class="d">7</div><b style="color:var(--g)">✓ ${t('press')}</b></div><div><div class="d">3</div><b style="color:var(--r)">✗ ${t('nopress')}</b></div></div>
+ <div class="m ct">${t('sPrac')}</div><button id="go" class="go big"></button></div>`);await btn('go',t('begP'))}
+async function sartMid(){view(`<div class="c">${steps(2)}<div class="ct" style="font-size:1.5em;font-weight:800;color:var(--g)">${t('pDone')}</div><div class="t">${t('sTest')}</div><button id="go" class="go big"></button></div>`);await btn('go',t('begT'))}
+function oneTrial(d,sz){return new Promise(res=>{const el=$('dg');let t0,rt=null;
+ el.style.fontSize=(sz/100*20)+'vmin';el.textContent=d;H=()=>{if(t0!==undefined&&rt===null)rt=performance.now()-t0};
+ requestAnimationFrame(()=>{t0=performance.now();setTimeout(()=>{el.textContent='⊗'},CFG.dig);setTimeout(()=>{H=null;res(rt)},CFG.dig+CFG.mask)})})}
+async function sart(prac){const n=prac?CFG.pn:CFG.n,seq=digits(n),rows=[];
+ view(`<div id="st"><div id="bar"><i id="bi"></i></div><div id="fbk"></div><div id="dg"></div><div id="hint">${t('tap')}</div></div>`);
+ $('st').onpointerdown=e=>{e.preventDefault();H&&H()};await sleep(800);
+ for(let i=0;i<n;i++){const d=seq[i],sz=SZ[Math.floor(Math.random()*5)],rt=await oneTrial(d,sz),resp=rt===null?0:1,go=d!==3;
+  const oc=go?(resp?(rt<100?'anticipación':'acierto'):'omisión'):(resp?'comisión':'rechazo correcto');
+  rows.push({trial:i+1,digit:d,size:sz,type:go?'go':'nogo',response:resp,rt:rt===null?'':Math.round(rt*10)/10,outcome:oc});
+  $('bi').style.width=((i+1)/n*100)+'%';
+  if(prac){const ok=go===!!resp;$('fbk').style.color=ok?'var(--g)':'var(--r)';$('fbk').textContent=ok?'✓ '+t('fOk'):'✗ '+t(go?'fOm':'fCom');$('dg').textContent='';await sleep(700);$('fbk').textContent=''}}
+ return rows}
+const avg=a=>a.reduce((x,y)=>x+y,0)/a.length,rd=(x,k=1)=>Math.round(x*10**k)/10**k;
+const zq=q=>{const a=q<.5?q:1-q,s=Math.sqrt(-2*Math.log(a)),x=s-(2.515517+.802853*s+.010328*s*s)/(1+1.432788*s+.189269*s*s+.001308*s*s*s);return q<.5?-x:x};
+function summarize(r){const go=r.filter(x=>x.type==='go'),ng=r.filter(x=>x.type==='nogo'),hits=go.filter(x=>x.response),com=ng.filter(x=>x.response).length,om=go.length-hits.length;
+ const rts=hits.filter(x=>x.rt>=100).map(x=>x.rt),m=rts.length?avg(rts):NaN,sd=rts.length>1?Math.sqrt(avg(rts.map(x=>(x-m)**2))*rts.length/(rts.length-1)):NaN;
+ const hr=(hits.length+.5)/(go.length+1),fa=(com+.5)/(ng.length+1);
+ return{goN:go.length,nogoN:ng.length,hits:hits.length,omissions:om,omissionPct:rd(om/go.length*100),commissions:com,commissionPct:rd(com/ng.length*100),rtMean:rd(m),rtSD:rd(sd),rtCV:rd(sd/m,3),anticipations:go.filter(x=>x.response&&x.rt<100).length,dprime:rd(zq(hr)-zq(fa),2)}}
+/* ===== Final ===== */
+async function thanks(sub){
+ view(`<div class="c ct">${steps(3)}<h1 style="font-size:3em;color:var(--g)">${t('thanks')}</h1><div>${sub}</div><div id="stt" class="m"></div><button id="rt" class="go" hidden>${t('retry')}</button><div id="fbk2" hidden class="m">${window.FLANKER_EMAIL?window.FLANKER_EMAIL+'<br>':''}<button id="d1">${t('dl')}</button></div></div>`);
+ $('d1').onclick=()=>{const q=getQ()[0]||S.last;if(!q)return;dl('sart_muestra.csv',csv([{...q.meta,...q.q,...q.s}]));setTimeout(()=>dl('sart_trials.csv',csv(q.trials)),400)};
+ const send=async()=>{$('stt').textContent=t('sending');const r=await flush();
+  $('stt').textContent={sent:t('sent')+(USER?' ('+(LG==='es'?'muestra nº ':'sample no. ')+USER+')':'')+'.',unconfirmed:t('unc')+(NET?' ('+NET+')':''),queued:t('fail'),local:t('local')}[r];
+  $('rt').hidden=r!=='queued';$('fbk2').hidden=!(r==='queued'||r==='local'||r==='unconfirmed')};
+ $('rt').onclick=send;await send()}
+async function finish(rows){let s={};try{s=summarize(rows)}catch(e){showErr('resumen: '+e.message)}
+ S.last={meta:{...S.meta,durationS:Math.round((performance.now()-S.t0)/1000)},q:ANS,s,trials:rows};setQ([...getQ(),S.last]);ls.set(DONE,'1');await thanks(t('done'))}
+async function diag(){const d=document.createElement('pre');d.style.cssText='position:fixed;top:0;left:0;right:0;background:#222;color:#7CFC00;padding:8px;font:12px/1.4 monospace;z-index:99;white-space:pre-wrap;margin:0';document.body.appendChild(d);
+ const g=async u=>{try{const r=await fetch(u,{signal:sig()});return r.status+' → '+(await r.text()).replace(/<[^>]*>/g,' ').trim().slice(0,150)}catch(e){return'ERROR: '+(e.message||e)}};
+ d.textContent='DIAGNÓSTICO (correcto = "pong v5")\n'+await g(CFG.endpoint+'?action=ping')}
+async function main(){
+ if(Q.get('diag'))diag();if(Q.get('reset')){ls.del(DONE);ls.del(QK)}
+ if(ls.get(DONE)){LG=(navigator.language||'es').startsWith('en')?'en':'es';await thanks(t('again'));return}
+ await welcome();await questionnaire();await sartIntro();await sart(true);await sartMid();const rows=await sart(false);await finish(rows)}
+main();
+</script></body></html>
